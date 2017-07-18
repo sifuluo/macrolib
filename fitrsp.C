@@ -9,7 +9,7 @@ double myfunction(double *xx, double *par)
 }
 double myfit(const int ieta, const int pt)
 {
-  // std::vector<float> etabins = {0., 0.087, 0.174, 0.261, 0.348, 0.435 ,0.522, 0.609, 0.696,
+  // std::vector<double> etabins = {0., 0.087, 0.174, 0.261, 0.348, 0.435 ,0.522, 0.609, 0.696,
   // 0.783,  0.879, 0.957, 1.044, 1.131, 1.218, 1.305 ,1.392, 1.479, 1.566,
   // 1.653,  1.74,  1.83,  1.93,  2.043, 2.172, 2.322 ,2.5,   2.65,  2.853,
   // 2.964,  3.139, 3.314, 3.489, 3.664, 3.839, 4.013 ,4.191, 4.363, 4.538,
@@ -30,8 +30,8 @@ double myfit(const int ieta, const int pt)
   // string eta2 = eta_boundaries[ieta+42];
 
 
-  int pt1 = ptbins[pt-3];
-  int pt2 = ptbins[pt-2];
+  const int pt1 = ptbins[pt-3];
+  const int pt2 = ptbins[pt-2];
 
   string fullname = Form("ak4pfchsl1/RelRsp_JetEta%sto%s_RefPt%dto%d",eta_boundaries[ieta+41].c_str(),eta_boundaries[ieta+42].c_str(),pt1,pt2);
   // string fullname = "ak4pfchsl1/RelRsp_JetEta" + eta1 + "to" + eta2 + "_RefPt" + pt1 + "to" + pt2;
@@ -40,72 +40,82 @@ double myfit(const int ieta, const int pt)
   TH1F *h1 = (TH1F*)fin->Get(fullname.c_str());
   h1->Draw();
   TF1* fitfnc(0);
-  const float integr=h1->Integral();
-  const float mean=h1->GetMean();
-  const float rms=h1->GetRMS();
-  double peak = h1->GetMean();
-  double sigma = h1->GetRMS();
+  const double ptmin = pt1;
+
+  const double integr=h1->Integral(); //0
+  const double mean=h1->GetMean(); //1
+  const double rms=h1->GetRMS();  //2
+
+  const double norm0 =integr; //0
+  const double peak0 = mean;  //1
+  const double sigma0 = rms;  //2
+  const double cdfmu0 = 3./ ptmin; //3
+  const double cdfsig0 = 1./ptmin; //4
+  const double tfrac0 = 0.3;  //5
+  const double tsigma0 = rms;  //6
+
+
+
+  double norm[3]   = {norm0   , 0.         , 2*integr};
+  double peak[3]   = {peak0   , 0.8*mean   , 1.2*mean};
+  double sigma[3]  = {sigma0  , 0.2        , 1.5*rms};
+  double cdfmu[3]  = {cdfmu0  , 1.0 / ptmin, 4.0 / ptmin};
+  double cdfsig[3] = {cdfsig0 , 0.01       , 2.};
+  double tfrac[3]  = {tfrac0  , 0.1        , 1.};
+  double tsigma[3] = {tsigma0 , 0.         , 4*rms};
   // double norm = h1->GetMaximumStored();
-  double norm = integr;
-  double ptmin = pt1;
-  cout << "ptmin = " <<ptmin <<endl;
+
   double xmin = h1->GetXaxis()->GetXmin();
   double xmax = h1->GetXaxis()->GetXmax();
-
-  double cdfmu = 3.0/ptmin;
-  double cdfsig = cdfmu/3.0;
-  double tfrac = 0.3;
-  double tsigma = 10*sigma;
-  cout << "norm = " << norm <<endl;
-  cout << "peak = " << peak <<endl;
-  cout << "sigma = " << sigma <<endl;
-  cout << "cdfmu = " << cdfmu <<endl;
-  cout << "cdfsig = " << cdfsig <<endl;
-  cout << "tfrac = " << tfrac <<endl;
-  cout << "tsigma = " << tsigma <<endl;
 
   for (int iiter = 0; iiter < 10; iiter++){
 
     fitfnc = new TF1("multigaus",myfunction,xmin,xmax,7);
     fitfnc->SetParNames("N","Core #mu","Core #sigma","CDF #mu","CDF #sigma","Tail Frac","Tail #sigma");
-    fitfnc->SetParameter(0,norm);
-    fitfnc->SetParLimits(0,0,2*integr);
-    fitfnc->SetParameter(1,peak);
-    fitfnc->SetParLimits(1,0.8*mean,1.2*mean);
-    fitfnc->SetParameter(2,sigma);
-    fitfnc->SetParLimits(2,0.2,1.5*rms);
-    fitfnc->SetParameter(3,cdfmu);
-    fitfnc->SetParLimits(3,2./ptmin,4./ptmin);
-    fitfnc->SetParameter(4,cdfsig);
-    fitfnc->SetParLimits(4,0.01,2.);
-    fitfnc->SetParameter(5,tfrac);
-    fitfnc->SetParLimits(5,0.5,1);
-    fitfnc->SetParameter(6,rms);
-    fitfnc->SetParLimits(6,0,rms*4);
+    fitfnc->SetParameter(0,norm[0]);
+    fitfnc->SetParLimits(0,norm[1],norm[2]);
+
+    fitfnc->SetParameter(1,peak[0]);
+    fitfnc->SetParLimits(1,peak[1],peak[2]);
+
+    fitfnc->SetParameter(2,sigma[0]);
+    fitfnc->SetParLimits(2,sigma[1],sigma[2]);
+
+    fitfnc->SetParameter(3,cdfmu[0]);
+    fitfnc->SetParLimits(3,cdfmu[1],cdfmu[2]);
+
+    fitfnc->SetParameter(4,cdfsig[0]);
+    fitfnc->SetParLimits(4,cdfsig[1],cdfsig[2]);
+
+    fitfnc->SetParameter(5,tfrac[0]);
+    fitfnc->SetParLimits(5,tfrac[1],tfrac[2]);
+
+    fitfnc->SetParameter(6,tsigma[0]);
+    fitfnc->SetParLimits(6,tsigma[1],tsigma[2]);
     h1->Fit(fitfnc,"RQ0");
     // delete fitfnc;
     // fitfnc = h1->GetFunction("multigaus");
     // if (fitfnc) cout << iiter << " time fit successful" <<endl;
-    norm  = fitfnc->GetParameter(0);
-    peak  = fitfnc->GetParameter(1);
-    sigma = fitfnc->GetParameter(2);
-    cdfmu = fitfnc->GetParameter(3);
-    cdfsig= fitfnc->GetParameter(4);
-    tfrac = fitfnc->GetParameter(5);
-    tsigma= fitfnc->GetParameter(6);
+    norm[0]  = fitfnc->GetParameter(0);
+    peak[0]  = fitfnc->GetParameter(1);
+    sigma[0] = fitfnc->GetParameter(2);
+    cdfmu[0] = fitfnc->GetParameter(3);
+    cdfsig[0]= fitfnc->GetParameter(4);
+    tfrac[0] = fitfnc->GetParameter(5);
+    tsigma[0]= fitfnc->GetParameter(6);
 
   }
   fitfnc->Draw("same");
-  cout << "norm = " << norm <<endl;
-  cout << "peak = " << peak <<endl;
-  cout << "sigma = " << sigma <<endl;
-  cout << "cdfmu = " << cdfmu <<endl;
-  cout << "cdfsig = " << cdfsig <<endl;
-  cout << "tfrac = " << tfrac <<endl;
-  cout << "tsigma = " << tsigma <<endl;
-  cout << "Chi Square / NDF = " << fitfnc->GetChi2()<<"/"<<fitfnc->GetNDF()<<endl;
+  cout << "norm = " << norm0 <<" => "<< norm[0] << "  With Limits  [  "<< norm[1] <<"  ,  "<< norm[2] <<"  ]"<<endl;
+  cout << "peak = " << peak0 <<" => "<< peak[0] << "  With Limits  [  "<< peak[1] <<"  ,  "<< peak[2] <<"  ]"<<endl;
+  cout << "sigma = " << sigma0 <<" => "<< sigma[0] << "  With Limits  [  "<< sigma[1] <<"  ,  "<< sigma[2] <<"  ]"<<endl;
+  cout << "cdfmu = " << cdfmu0 <<" => "<< cdfmu[0] << "  With Limits  [  "<< cdfmu[1] <<"  ,  "<< cdfmu[2] <<"  ]"<<endl;
+  cout << "cdfsig = " << cdfsig0 <<" => "<< cdfsig[0] << "  With Limits  [  "<< cdfsig[1]<<"  ,  "<< cdfsig[2] <<"  ]"<<endl;
+  cout << "tfrac = " << tfrac0 <<" => "<< tfrac[0] << "  With Limits  [  "<< tfrac[1] <<"  ,  "<< tfrac[2] <<"  ]"<<endl;
+  cout << "tsigma = " << tsigma0 <<" => "<< tsigma[0] << "  With Limits  [  "<< tsigma[1] <<"  ,  "<< tsigma[2] <<"  ]"<<endl;
+  cout << "Chi Square / NDF = " << fitfnc->GetChisquare()<<"/"<<fitfnc->GetNDF()<<endl;
   cout << "P = "<<fitfnc->GetProb()<<endl;
-  return peak;
+  return peak[0];
 
 }
 

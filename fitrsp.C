@@ -8,7 +8,7 @@ double myfunction(double *xx, double *par)
     * ROOT::Math::normal_cdf(x,par[4],par[3]);
     return res;
 }
-double myfit(const int ieta, const int pt)
+double myfit(const int ieta, const int pt, const double xfitmax)
 {
   // std::vector<double> etabins = {0., 0.087, 0.174, 0.261, 0.348, 0.435 ,0.522, 0.609, 0.696,
   // 0.783,  0.879, 0.957, 1.044, 1.131, 1.218, 1.305 ,1.392, 1.479, 1.566,
@@ -68,7 +68,7 @@ double myfit(const int ieta, const int pt)
 
   // double xmin = h1->GetXaxis()->GetXmin();
   double xmin = 0.8/(ptmin+1.);
-  double xmax = h1->GetXaxis()->GetXmax();
+  double xmax = min(h1->GetXaxis()->GetXmax(),xfitmax);
 
   for (int iiter = 0; iiter < 10; iiter++){
 
@@ -123,7 +123,7 @@ double myfit(const int ieta, const int pt)
 
 }
 
-void fitit(const int ieta)
+void fitit(const int ieta,const double xfitmax = 6.0)
 {
   TCanvas *c1 = new TCanvas("c1","c1",2400,1200);
   c1->Divide(4,2);
@@ -131,7 +131,7 @@ void fitit(const int ieta)
   for (int ipad = 1; ipad <= 8; ++ipad ){
     c1->cd(ipad);
     double padpt = ipad + 2;
-    gr->SetPoint(gr->GetN(),ipad+2, 1 / myfit(ieta, ipad+2));
+    gr->SetPoint(gr->GetN(),ipad+2, 1 / myfit(ieta, ipad+2, xfitmax));
 
   }
   TCanvas *c2 = new TCanvas("c2","c2",800,600);

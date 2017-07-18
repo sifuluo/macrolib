@@ -49,23 +49,24 @@ double myfit(const int ieta, const int pt)
   const double norm0 =integr; //0
   const double peak0 = mean;  //1
   const double sigma0 = rms;  //2
-  const double cdfmu0 = 3./ ptmin; //3
-  const double cdfsig0 = 1./ptmin; //4
+  const double cdfmu0 = 2./ ptmin; //3
+  const double cdfsig0 = 0.2/ptmin; //4
   const double tfrac0 = 0.3;  //5
   const double tsigma0 = rms;  //6
 
 
 
-  double norm[3]   = {norm0   , 0.         , 2*integr};
-  double peak[3]   = {peak0   , 0.8*mean   , 1.2*mean};
-  double sigma[3]  = {sigma0  , 0.2        , 1.5*rms};
-  double cdfmu[3]  = {cdfmu0  , 1.0 / ptmin, 4.0 / ptmin};
-  double cdfsig[3] = {cdfsig0 , 0.01       , 2.};
-  double tfrac[3]  = {tfrac0  , 0.1        , 1.};
-  double tsigma[3] = {tsigma0 , 0.         , 4*rms};
+  double norm[3]   = {norm0   , 0.          , 2*integr};
+  double peak[3]   = {peak0   , 0.8*mean    , 1.2*mean};
+  double sigma[3]  = {sigma0  , 0.2         , 1.5*rms};
+  double cdfmu[3]  = {cdfmu0  , 0.2 / ptmin , 5. / ptmin};
+  double cdfsig[3] = {cdfsig0 , 0.0001/ptmin, 1./ptmin};
+  double tfrac[3]  = {tfrac0  , 0.1         , 1.};
+  double tsigma[3] = {tsigma0 , 0.          , 4*rms};
   // double norm = h1->GetMaximumStored();
 
-  double xmin = h1->GetXaxis()->GetXmin();
+  // double xmin = h1->GetXaxis()->GetXmin();
+  double xmin = 0.8/(ptmin+1.);
   double xmax = h1->GetXaxis()->GetXmax();
 
   for (int iiter = 0; iiter < 10; iiter++){
@@ -106,15 +107,17 @@ double myfit(const int ieta, const int pt)
 
   }
   fitfnc->Draw("same");
-  cout << "norm = " << norm0 <<" => "<< norm[0] << "  With Limits  [  "<< norm[1] <<"  ,  "<< norm[2] <<"  ]"<<endl;
-  cout << "peak = " << peak0 <<" => "<< peak[0] << "  With Limits  [  "<< peak[1] <<"  ,  "<< peak[2] <<"  ]"<<endl;
-  cout << "sigma = " << sigma0 <<" => "<< sigma[0] << "  With Limits  [  "<< sigma[1] <<"  ,  "<< sigma[2] <<"  ]"<<endl;
-  cout << "cdfmu = " << cdfmu0 <<" => "<< cdfmu[0] << "  With Limits  [  "<< cdfmu[1] <<"  ,  "<< cdfmu[2] <<"  ]"<<endl;
-  cout << "cdfsig = " << cdfsig0 <<" => "<< cdfsig[0] << "  With Limits  [  "<< cdfsig[1]<<"  ,  "<< cdfsig[2] <<"  ]"<<endl;
-  cout << "tfrac = " << tfrac0 <<" => "<< tfrac[0] << "  With Limits  [  "<< tfrac[1] <<"  ,  "<< tfrac[2] <<"  ]"<<endl;
+  cout << "norm = "   << norm0   <<" => "<< norm[0]   << "  With Limits  [  "<< norm[1]   <<"  ,  "<< norm[2]   <<"  ]"<<endl;
+  cout << "peak = "   << peak0   <<" => "<< peak[0]   << "  With Limits  [  "<< peak[1]   <<"  ,  "<< peak[2]   <<"  ]"<<endl;
+  cout << "sigma = "  << sigma0  <<" => "<< sigma[0]  << "  With Limits  [  "<< sigma[1]  <<"  ,  "<< sigma[2]  <<"  ]"<<endl;
+  cout << "cdfmu = "  << cdfmu0  <<" => "<< cdfmu[0]  << "  With Limits  [  "<< cdfmu[1]  <<"  ,  "<< cdfmu[2]  <<"  ]"<<endl;
+  cout << "cdfsig = " << cdfsig0 <<" => "<< cdfsig[0] << "  With Limits  [  "<< cdfsig[1] <<"  ,  "<< cdfsig[2] <<"  ]"<<endl;
+  cout << "tfrac = "  << tfrac0  <<" => "<< tfrac[0]  << "  With Limits  [  "<< tfrac[1]  <<"  ,  "<< tfrac[2]  <<"  ]"<<endl;
   cout << "tsigma = " << tsigma0 <<" => "<< tsigma[0] << "  With Limits  [  "<< tsigma[1] <<"  ,  "<< tsigma[2] <<"  ]"<<endl;
-  cout << "Chi Square / NDF = " << fitfnc->GetChisquare()<<"/"<<fitfnc->GetNDF()<<endl;
+  cout << "Chi Square / NDF = "  << fitfnc->GetChisquare()<<"/"<<fitfnc->GetNDF()<<endl;
   cout << "P = "<<fitfnc->GetProb()<<endl;
+  cout << endl;
+
   return peak[0];
 
 }

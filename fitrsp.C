@@ -1,5 +1,6 @@
 double myfunction(double *xx, double *par)
 {
+//add
   Float_t x =xx[0];
   Double_t res = par[0] * (
     par[5]    * TMath::Gaus(x,par[1], par[2]) +

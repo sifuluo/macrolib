@@ -7,7 +7,7 @@ double myfunction(double *xx, double *par)
     * ROOT::Math::normal_cdf(x,par[4],par[3]);
     return res;
 }
-void myfit(const int ieta, const int pt)
+double myfit(const int ieta, const int pt)
 {
   // std::vector<float> etabins = {0., 0.087, 0.174, 0.261, 0.348, 0.435 ,0.522, 0.609, 0.696,
   // 0.783,  0.879, 0.957, 1.044, 1.131, 1.218, 1.305 ,1.392, 1.479, 1.566,
@@ -40,10 +40,13 @@ void myfit(const int ieta, const int pt)
   TH1F *h1 = (TH1F*)fin->Get(fullname.c_str());
   h1->Draw();
   TF1* fitfnc(0);
+  const float integr=h1->Integral();
+  const float mean=h1->GetMean();
+  const float rms=h1->GetRMS();
   double peak = h1->GetMean();
   double sigma = h1->GetRMS();
   // double norm = h1->GetMaximumStored();
-  double norm = h1->GetEntries();
+  double norm = integr;
   double ptmin = pt1;
   cout << "ptmin = " <<ptmin <<endl;
   double xmin = h1->GetXaxis()->GetXmin();
@@ -62,9 +65,7 @@ void myfit(const int ieta, const int pt)
   cout << "tsigma = " << tsigma <<endl;
 
   for (int iiter = 0; iiter < 10; iiter++){
-    const float integr=h1->Integral();
-    const float mean=h1->GetMean();
-    const float rms=h1->GetRMS();
+
     fitfnc = new TF1("multigaus",myfunction,xmin,xmax,7);
     fitfnc->SetParNames("N","Core #mu","Core #sigma","CDF #mu","CDF #sigma","Tail Frac","Tail #sigma");
     fitfnc->SetParameter(0,norm);
@@ -72,11 +73,11 @@ void myfit(const int ieta, const int pt)
     fitfnc->SetParameter(1,peak);
     fitfnc->SetParLimits(1,0.8*mean,1.2*mean);
     fitfnc->SetParameter(2,sigma);
-    fitfnc->SetParLimits(2,0.0,1.5*rms);
+    fitfnc->SetParLimits(2,0.2,1.5*rms);
     fitfnc->SetParameter(3,cdfmu);
-    //fitfnc->SetParLimits(3,2./ptmin,4./ptmin);
+    fitfnc->SetParLimits(3,2./ptmin,4./ptmin);
     fitfnc->SetParameter(4,cdfsig);
-    //fitfnc->SetParLimits(4,);
+    fitfnc->SetParLimits(4,0.01,2.);
     fitfnc->SetParameter(5,tfrac);
     fitfnc->SetParLimits(5,0.5,1);
     fitfnc->SetParameter(6,rms);
@@ -102,6 +103,9 @@ void myfit(const int ieta, const int pt)
   cout << "cdfsig = " << cdfsig <<endl;
   cout << "tfrac = " << tfrac <<endl;
   cout << "tsigma = " << tsigma <<endl;
+  cout << "Chi Square / NDF = " << fitfnc->GetChi2()<<"/"<<fitfnc->GetNDF()<<endl;
+  cout << "P = "<<fitfnc->GetProb()<<endl;
+  return peak;
 
 }
 
@@ -109,9 +113,14 @@ void fitit(const int ieta)
 {
   TCanvas *c1 = new TCanvas("c1","c1",2400,1200);
   c1->Divide(4,2);
+  TGraph *gr = new TGraph();
   for (int ipad = 1; ipad <= 8; ++ipad ){
     c1->cd(ipad);
     double padpt = ipad + 2;
-    myfit(ieta, padpt);
+    gr->SetPoint(gr->GetN(),ipad+2, 1 / myfit(ieta, ipad+2));
+
   }
+  TCanvas *c2 = new TCanvas("c2","c2",800,600);
+  c2->cd();
+  gr->Draw();
 }

@@ -27,19 +27,16 @@ double myfit(const int ieta, const int pt, const double xfitmax)
   "4.716","4.889","5.191"};
   std::vector<const int> ptbins = {3, 4, 5, 6, 7, 8, 9, 10, 11};
 
-  // string eta1 = eta_boundaries[ieta+41];
-  // string eta2 = eta_boundaries[ieta+42];
-
-
   const int pt1 = ptbins[pt-3];
   const int pt2 = ptbins[pt-2];
 
   string fullname = Form("ak4pfchsl1/RelRsp_JetEta%sto%s_RefPt%dto%d",eta_boundaries[ieta+41].c_str(),eta_boundaries[ieta+42].c_str(),pt1,pt2);
-  // string fullname = "ak4pfchsl1/RelRsp_JetEta" + eta1 + "to" + eta2 + "_RefPt" + pt1 + "to" + pt2;
+
   cout << fullname <<endl;
   TFile *fin = new TFile("jra.root");
   TH1F *h1 = (TH1F*)fin->Get(fullname.c_str());
-  h1->Draw();
+
+
   TF1* fitfnc(0);
   const double ptmin = pt1;
 
@@ -47,24 +44,25 @@ double myfit(const int ieta, const int pt, const double xfitmax)
   const double mean=h1->GetMean(); //1
   const double rms=h1->GetRMS();  //2
 
-  const double norm0 =integr; //0
-  const double peak0 = mean;  //1
-  const double sigma0 = rms;  //2
-  const double cdfmu0 = 2./ ptmin; //3
-  const double cdfsig0 = 0.2/ptmin; //4
-  const double tfrac0 = 0.3;  //5
-  const double tsigma0 = rms;  //6
-
-
-
-  double norm[3]   = {norm0   , 0.          , 2*integr};
-  double peak[3]   = {peak0   , 0.8*mean    , 1.2*mean};
-  double sigma[3]  = {sigma0  , 0.2         , 1.5*rms};
-  double cdfmu[3]  = {cdfmu0  , 0.2 / ptmin , 5. / ptmin};
-  double cdfsig[3] = {cdfsig0 , 0.0001/ptmin, 1./ptmin};
-  double tfrac[3]  = {tfrac0  , 0.1         , 1.};
-  double tsigma[3] = {tsigma0 , 0.          , 4*rms};
   // double norm = h1->GetMaximumStored();
+  struct para {
+    const string name; const double ival; const double minval; const double maxval;
+  };
+  std::vector<para> paras = {
+    {"norm      ", integr   , 0.          , 2*integr},
+    {"core_mu   ", mean     , 0.8*mean    , 1.2*mean},
+    {"core_sigma", rms      , 0.2         , 1.5*rms },
+    {"cdf_mu    ", 2./ptmin , 0.2/ptmin   , 5./ptmin},
+    {"cdf_sigma ", 0.2/ptmin, 0.0001/ptmin, 1./ptmin},
+    {"tail_frac ", 0.3      , 0.1         , 1.      },
+    {"tail_sigma", rms      , 0.          , 4*rms   },
+  };
+
+  std::vector<double> paravals;
+  for (int ipush = 0; ipush < paras.size(); ++ipush){
+    paravals.push_back(paras[ipush].ival);
+  }
+
 
   // double xmin = h1->GetXaxis()->GetXmin();
   double xmin = 0.8/(ptmin+1.);
@@ -74,56 +72,39 @@ double myfit(const int ieta, const int pt, const double xfitmax)
 
     fitfnc = new TF1("multigaus",myfunction,xmin,xmax,7);
     fitfnc->SetParNames("N","Core #mu","Core #sigma","CDF #mu","CDF #sigma","Tail Frac","Tail #sigma");
-    fitfnc->SetParameter(0,norm[0]);
-    fitfnc->SetParLimits(0,norm[1],norm[2]);
 
-    fitfnc->SetParameter(1,peak[0]);
-    fitfnc->SetParLimits(1,peak[1],peak[2]);
-
-    fitfnc->SetParameter(2,sigma[0]);
-    fitfnc->SetParLimits(2,sigma[1],sigma[2]);
-
-    fitfnc->SetParameter(3,cdfmu[0]);
-    fitfnc->SetParLimits(3,cdfmu[1],cdfmu[2]);
-
-    fitfnc->SetParameter(4,cdfsig[0]);
-    fitfnc->SetParLimits(4,cdfsig[1],cdfsig[2]);
-
-    fitfnc->SetParameter(5,tfrac[0]);
-    fitfnc->SetParLimits(5,tfrac[1],tfrac[2]);
-
-    fitfnc->SetParameter(6,tsigma[0]);
-    fitfnc->SetParLimits(6,tsigma[1],tsigma[2]);
+    for(int iset = 0; iset < paras.size(); ++iset){
+      fitfnc->SetParameter(iset, paravals[iset]);
+      fitfnc->SetParLimits(iset, paras[iset].minval, paras[iset].maxval);
+    }
     h1->Fit(fitfnc,"RQ0");
     // delete fitfnc;
     // fitfnc = h1->GetFunction("multigaus");
-    // if (fitfnc) cout << iiter << " time fit successful" <<endl;
-    norm[0]  = fitfnc->GetParameter(0);
-    peak[0]  = fitfnc->GetParameter(1);
-    sigma[0] = fitfnc->GetParameter(2);
-    cdfmu[0] = fitfnc->GetParameter(3);
-    cdfsig[0]= fitfnc->GetParameter(4);
-    tfrac[0] = fitfnc->GetParameter(5);
-    tsigma[0]= fitfnc->GetParameter(6);
 
+    for (int iget = 0; iget < paras.size(); ++iget) {
+      paravals[iget] = fitfnc->GetParameter(iget);
+    }
   }
+  h1->GetXaxis()->SetRangeUser(0,xfitmax);
+  h1->Draw();
   fitfnc->Draw("same");
-  cout << "norm = "   << norm0   <<" => "<< norm[0]   << "  With Limits  [  "<< norm[1]   <<"  ,  "<< norm[2]   <<"  ]"<<endl;
-  cout << "peak = "   << peak0   <<" => "<< peak[0]   << "  With Limits  [  "<< peak[1]   <<"  ,  "<< peak[2]   <<"  ]"<<endl;
-  cout << "sigma = "  << sigma0  <<" => "<< sigma[0]  << "  With Limits  [  "<< sigma[1]  <<"  ,  "<< sigma[2]  <<"  ]"<<endl;
-  cout << "cdfmu = "  << cdfmu0  <<" => "<< cdfmu[0]  << "  With Limits  [  "<< cdfmu[1]  <<"  ,  "<< cdfmu[2]  <<"  ]"<<endl;
-  cout << "cdfsig = " << cdfsig0 <<" => "<< cdfsig[0] << "  With Limits  [  "<< cdfsig[1] <<"  ,  "<< cdfsig[2] <<"  ]"<<endl;
-  cout << "tfrac = "  << tfrac0  <<" => "<< tfrac[0]  << "  With Limits  [  "<< tfrac[1]  <<"  ,  "<< tfrac[2]  <<"  ]"<<endl;
-  cout << "tsigma = " << tsigma0 <<" => "<< tsigma[0] << "  With Limits  [  "<< tsigma[1] <<"  ,  "<< tsigma[2] <<"  ]"<<endl;
+
+
+
+  for (int iprint = 0; iprint < paras.size(); ++iprint){
+    cout << Form("%s = %10.5g => %10.5g With Limits [ %10.5g , %10.5g ]",paras[iprint].name.c_str(), paras[iprint].ival, paravals[iprint], paras[iprint].minval, paras[iprint].maxval) << endl;
+    if(paravals[iprint] == paras[iprint].minval) cout << "hitting the lower limit" <<endl;
+    if(paravals[iprint] == paras[iprint].maxval) cout << "hitting the upper limit" <<endl;
+  }
   cout << "Chi Square / NDF = "  << fitfnc->GetChisquare()<<"/"<<fitfnc->GetNDF()<<endl;
   cout << "P = "<<fitfnc->GetProb()<<endl;
   cout << endl;
 
-  return peak[0];
+  return paravals[1];
 
 }
 
-void fitit(const int ieta,const double xfitmax = 6.0)
+void fitit(const int ieta = 0,const double xfitmax = 6.0)
 {
   TCanvas *c1 = new TCanvas("c1","c1",2400,1200);
   c1->Divide(4,2);

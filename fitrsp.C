@@ -4,11 +4,11 @@ double myfunction(double *xx, double *par)
   Float_t x =xx[0];
   Double_t res = par[0] * (
     par[5]    * TMath::Gaus(x,par[1], par[2]) +
-    (1.0-par[5]) * TMath::Gaus(x,par[1], par[2]+par[6])    )
+    (1.0-par[5]) * TMath::Gaus(x,par[1], par[2]*(1+par[6]))    )
     * ROOT::Math::normal_cdf(x,par[4],par[3]);
     return res;
 }
-double myfit(const int ieta, const int pt, const double xfitmax)
+double myfit(const int ieta, const int pt, double xfitmax)
 {
   // std::vector<double> etabins = {0., 0.087, 0.174, 0.261, 0.348, 0.435 ,0.522, 0.609, 0.696,
   // 0.783,  0.879, 0.957, 1.044, 1.131, 1.218, 1.305 ,1.392, 1.479, 1.566,
@@ -42,20 +42,20 @@ double myfit(const int ieta, const int pt, const double xfitmax)
 
   const double integr=h1->Integral(); //0
   const double mean=h1->GetMean(); //1
-  const double rms=h1->GetRMS();  //2
+  const double rms=h1->GetRMS(); //2
 
   // double norm = h1->GetMaximumStored();
   struct para {
     const string name; const double ival; const double minval; const double maxval;
   };
   std::vector<para> paras = {
-    {"norm      ", integr   , 0.          , 2*integr},
-    {"core_mu   ", mean     , 0.8*mean    , 1.2*mean},
-    {"core_sigma", rms      , 0.2         , 1.5*rms },
-    {"cdf_mu    ", 2./ptmin , 0.2/ptmin   , 5./ptmin},
-    {"cdf_sigma ", 0.2/ptmin, 0.0001/ptmin, 1./ptmin},
-    {"tail_frac ", 0.3      , 0.1         , 1.      },
-    {"tail_sigma", rms      , 0.          , 4*rms   },
+    {"norm      ", integr   , 0.          , 2*integr       },
+    {"core_mu   ", mean     , 0.6*mean    , 1.2*mean       },
+    {"core_sigma", rms      , 0.2         , 1.5*rms        },
+    {"cdf_mu    ", 2./ptmin , 0.2/ptmin   , 5./ptmin       },
+    {"cdf_sigma ", 0.2/ptmin, 0.0001/ptmin, 1./ptmin       },
+    {"core_frac ", 0.9      , ptmin > 10? 0.9:(ptmin-2)*0.1         , 1.0            },
+    {"sigma_inc ", 0.5*rms  , 0.02        , 8.             },
   };
 
   std::vector<double> paravals;
@@ -66,6 +66,7 @@ double myfit(const int ieta, const int pt, const double xfitmax)
 
   // double xmin = h1->GetXaxis()->GetXmin();
   double xmin = 0.8/(ptmin+1.);
+  xfitmax = xfitmax * rms;
   double xmax = min(h1->GetXaxis()->GetXmax(),xfitmax);
 
   for (int iiter = 0; iiter < 10; iiter++){
@@ -85,7 +86,7 @@ double myfit(const int ieta, const int pt, const double xfitmax)
       paravals[iget] = fitfnc->GetParameter(iget);
     }
   }
-  h1->GetXaxis()->SetRangeUser(0,xfitmax);
+  // h1->GetXaxis()->SetRangeUser(0,xfitmax);
   h1->Draw();
   fitfnc->Draw("same");
 
@@ -93,8 +94,8 @@ double myfit(const int ieta, const int pt, const double xfitmax)
 
   for (int iprint = 0; iprint < paras.size(); ++iprint){
     cout << Form("%s = %10.5g => %10.5g With Limits [ %10.5g , %10.5g ]",paras[iprint].name.c_str(), paras[iprint].ival, paravals[iprint], paras[iprint].minval, paras[iprint].maxval) << endl;
-    if(paravals[iprint] == paras[iprint].minval) cout << "hitting the lower limit" <<endl;
-    if(paravals[iprint] == paras[iprint].maxval) cout << "hitting the upper limit" <<endl;
+    if(paravals[iprint] < paras[iprint].minval * 1.05) cout << "******Hitting the LOWER limit" <<endl;
+    if(paravals[iprint] > paras[iprint].maxval * 0.95) cout << "******Hitting the UPPER limit" <<endl;
   }
   cout << "Chi Square / NDF = "  << fitfnc->GetChisquare()<<"/"<<fitfnc->GetNDF()<<endl;
   cout << "P = "<<fitfnc->GetProb()<<endl;

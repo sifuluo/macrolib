@@ -6,6 +6,14 @@ double myfunction(double *xx, double *par)
     par[5]    * TMath::Gaus(x,par[1], par[2]) +
     (1.0-par[5]) * TMath::Gaus(x,par[1], par[2]*(1+par[6]))    )
     * ROOT::Math::normal_cdf(x,par[4],par[3]);
+  return res;
+}
+double dashedfunc(double *xx, double *par)
+{
+  Float_t x = xx[0];
+  Double_t res = par[0] * (
+    par[5]    * TMath::Gaus(x,par[1], par[2]) +
+    (1.0-par[5]) * TMath::Gaus(x,par[1], par[2]*(1+par[6]))    )+par[4]+par[3]-par[4]-par[3];
     return res;
 }
 std::pair<double, double> myfit(const int ieta, const int ipt, double nsigma)
@@ -41,11 +49,13 @@ std::pair<double, double> myfit(const int ieta, const int ipt, double nsigma)
   TH1F *h2 = (TH1F*)fin->Get(jetptname.c_str());
   double jetpt = h2->GetMean();
 
+  h1->Rebin(10);
 
   TF1* fitfnc(0);
   const double ptmin = pt1;
 
-  double integr=h1->Integral(); //0
+  double integr=h1->Integral() * h1->GetBinWidth(0); //0
+  integr = h1->GetMaximum();
   double mean=h1->GetMean(); //1
   const double rms=h1->GetRMS(); //2
 
@@ -56,17 +66,18 @@ std::pair<double, double> myfit(const int ieta, const int ipt, double nsigma)
   mean = p;
   double fitsigma = nsigma * rms;
 
+
   // double norm = h1->GetMaximumStored();
   struct para {
     const string name; const double ival; const double minval; const double maxval;
   };
   std::vector<para> paras = {
     {"norm      ", integr   , 0.                         , 2*integr       },
-    {"core_mu   ", mean     , 0.85*mean                  , 1.2*mean       },
+    {"core_mu   ", mean     , 0.7*mean                  , 1.2*mean       },
     {"core_sigma", rms      , 0.4*rms                    , 1.5*rms        },
-    {"cdf_mu    ", 2./ptmin , 0.2/ptmin                  , 5./ptmin       },
-    {"cdf_sigma ", 0.2/ptmin, 0.0001/ptmin               , 1./ptmin       },
-    {"core_frac ", 0.9      , min(0.9,(ptmin-1)*0.05+0.4), 1.0            },
+    {"cdf_mu    ", 3.5/ptmin , 3./ptmin                  , 3.5/ptmin       },
+    {"cdf_sigma ", 0.2/ptmin, 0.1/ptmin               ,  1./ptmin       },
+    {"core_frac ", 0.9      , min(0.9,(ptmin-2)*0.05+0.4), 1.0            },
     {"sigma_inc ", 0.5*rms  , 0.02                       , 8.             },
   };
 
@@ -79,7 +90,7 @@ std::pair<double, double> myfit(const int ieta, const int ipt, double nsigma)
   // double xmin = h1->GetXaxis()->GetXmin();
   double xmin = 0.8/(ptmin+1.);
 
-  if (pt1 > 1) xmin = max(paravals[1]-1.0*rms,xmin);
+  if (pt1 > 7) xmin = max(paravals[1]-1.0*rms,xmin);
   double xmax = min(h1->GetXaxis()->GetXmax(),paravals[1] + 2.0*rms);
 
   for (int iiter = 0; iiter < 15; iiter++){
@@ -98,17 +109,43 @@ std::pair<double, double> myfit(const int ieta, const int ipt, double nsigma)
     for (int iget = 0; iget < paras.size(); ++iget) {
       paravals[iget] = fitfnc->GetParameter(iget);
     }
+
   }
-  h1->GetXaxis()->SetRangeUser(0,xmax);
+
+  // h1->GetXaxis()->SetRangeUser(0,xmax);
   h1->Draw();
   fitfnc->Draw("same");
 
+  // bool comparecdf = false;
+  // if (comparecdf){
+  //   TF1* dashline = new TF1("dashed",dashedfunc,xmin,xmax,7);
+  //   dashline->SetParNames("N","Core #mu","Core #sigma","CDF #mu","CDF #sigma","Tail Frac","Tail #sigma");
+  //
+  //   for(int iset = 0; iset < paras.size(); ++iset){
+  //     dashline->SetParameter(iset, paravals[iset]);
+  //   }
+  //   dashline->SetLineColor(3);
+  //   dashline->Draw("same");
+  // }
+  // TH1F *newh1 = (TH1F*)h1->Clone();
+  // for (int ibin = 0; ibin <= h1->GetNbinsX(); ++ibin)
+  // {
+  //   newh1->SetBinContent(ibin, h1->GetBinContent(ibin) / ROOT::Math::normal_cdf(h1->GetBinCenter(ibin),paravals[4],paravals[3]) );
+  //   newh1->SetBinError(ibin, h1->GetBinError(ibin) / ROOT::Math::normal_cdf(h1->GetBinCenter(ibin),paravals[4],paravals[3]) );
+  // }
+
   //median
-  double medianx, medianq;
-  medianq = 0.5;
-  h1->GetQuantiles(1, &medianx, &medianq);
-  TLine *l1 = new TLine(medianx,0,medianx,h1->GetMaximum());
-  l1->Draw("same");
+  // double medianx, medianq;
+  // medianq = 0.5;
+  // h1->GetQuantiles(1, &medianx, &medianq);
+  // TLine *l1 = new TLine(medianx,0,medianx,h1->GetMaximum());
+  // l1->Draw("same");
+  //
+  // double medianx2;
+  // newh1->GetQuantiles(1, &medianx2, &medianq);
+  // TLine *newl1 = new TLine(medianx2,0,medianx2,h1->GetMaximum());
+  // newl1->SetLineColor(4);
+  // newl1->Draw("same");
 
   jetpt *= paravals[1]/h1->GetMean();
 
@@ -117,14 +154,17 @@ std::pair<double, double> myfit(const int ieta, const int ipt, double nsigma)
     if(paravals[iprint] < paras[iprint].minval * 1.01) cout << "*********Hitting the LOWER limit*********" <<endl;
     if(paravals[iprint] > paras[iprint].maxval * 0.99) cout << "*********Hitting the UPPER limit*********" <<endl;
   }
+  cout << "Threshold = " << paravals[3]*pt1 <<endl;
   double chi2 = fitfnc->GetChisquare();
   double ndf  = fitfnc->GetNDF();
-  cout << "median = " << medianx <<endl;
+  // cout << "median = " << medianx <<endl;
+  // cout << "median without Threshold Effect = " << medianx2 <<endl;
   cout << "Chi Square / NDF = "  << chi2 <<"/"<< ndf <<" = "<<chi2 / ndf<< endl;
   cout << "P = "<<fitfnc->GetProb()<<endl;
   cout << "JetPt = "<< h2->GetMean() << " * " << paravals[1]/h1->GetMean() << " = " << jetpt <<endl;
   cout << endl;
 
+  // std::pair<double, double> corrdots = std::make_pair(jetpt,1. / paravals[1]);
   std::pair<double, double> corrdots = std::make_pair(jetpt,1. / paravals[1]);
 
   return corrdots;
@@ -133,8 +173,9 @@ std::pair<double, double> myfit(const int ieta, const int ipt, double nsigma)
 
 void fitit(const int ieta = 0,const double nsigma = 1.5)
 {
+  cout << "=============================================================================================================="<< endl;
   TCanvas *c1 = new TCanvas("c1","c1",3000,1500);
-  int xpad = 5, ypad = 4;
+  int xpad = 3, ypad = 2;
   c1->Divide(xpad, ypad);
 
   TGraph *gr = new TGraph();
@@ -147,5 +188,5 @@ void fitit(const int ieta = 0,const double nsigma = 1.5)
   }
   TCanvas *c2 = new TCanvas("c2","c2",800,600);
   c2->cd();
-  gr->Draw();
+  gr->Draw("*al");
 }

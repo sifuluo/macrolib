@@ -67,7 +67,7 @@ std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsi
   // double xmin = h1->GetXaxis()->GetXmin();
   double xmin = 0.8/(ptmin+1.);
 
-  if (pt1 > 7) xmin = max(paravals[1]-0.8*rms,xmin);
+  if (pt1 > 0) xmin = max(paravals[1]-0.5*rms,xmin);
   double xmax = min(h1->GetXaxis()->GetXmax(),paravals[1] + 2.0*rms);
 
   for (int iiter = 0; iiter < 15; iiter++){
@@ -90,6 +90,18 @@ std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsi
   // h1->GetXaxis()->SetRangeUser(0,xmax);
   h1->Draw();
   fitfnc->Draw("same");
+  TString namec="h1c_";
+  namec.Append(h1->GetName());
+  TH1F *h1c=(TH1F*)h1->Clone(namec);
+  for(unsigned i=0; i<h1c->GetNbinsX(); ++i) h1c->SetBinContent(i+1,h1c->GetBinContent(i+1)-fitfnc->Eval(h1c->GetBinCenter(i+1)));
+  h1c->SetLineColor(8);
+  h1c->SetLineStyle(2);
+  h1c->Draw("same,hist");
+  TF1 *gaustest=new TF1("gaustest","gausn",0.,1.);
+  gaustest->SetLineColor(1);
+  gaustest->SetLineStyle(3);
+  h1c->Fit(gaustest,"R");
+  gaustest->Draw("same");
 
   jetpt *= paravals[1]/h1->GetMean();
   double chi2 = fitfnc->GetChisquare();

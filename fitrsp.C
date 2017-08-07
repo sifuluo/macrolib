@@ -1,4 +1,4 @@
-double myfunction(double *xx, double *par)
+double bigaus(double *xx, double *par)
 {
 //add
   Float_t x =xx[0];
@@ -8,16 +8,20 @@ double myfunction(double *xx, double *par)
     * ROOT::Math::normal_cdf(x,par[4],par[3]);
   return res;
 }
-double dashedfunc(double *xx, double *par)
+double trigaus(double *xx, double *par)
 {
   Float_t x = xx[0];
   Double_t res = par[0] * (
     par[5]    * TMath::Gaus(x,par[1], par[2]) +
-    (1.0-par[5]) * TMath::Gaus(x,par[1], par[2]*(1+par[6]))    )+par[4]+par[3]-par[4]-par[3];
+    (1.0-par[5]) * TMath::Gaus(x,par[1], par[2]*(1+par[6]))    )+par[4]+par[3]-par[4]-par[3]
+    +TMath::Gaus(x,par[7]*par[1],par[8]);
     return res;
 }
+struct para {
+  const string name; const double ival; const double minval; const double maxval; double fval;
+};
 
-std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsigma, bool moreinfo)
+std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsigma, bool moreinfo, std::vector<para>&paras)
 {
   string relrspname   = Form("ak4pfchsl1/RelRsp_JetEta%sto%s_RefPt%dto%d",eta1.c_str(),eta2.c_str(),pt1,pt2);
   string jetptname    = Form("ak4pfchsl1/JetPt_JetEta%sto%s_RefPt%dto%d",eta1.c_str(),eta2.c_str(),pt1,pt2);
@@ -29,7 +33,8 @@ std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsi
 
   // h1->Rebin(10);
 
-  TF1* fitfnc(0);
+  TF1* fitbigaus(0);
+  TF1* fittrigaus(0);
   const double ptmin = pt1;
 
   double integr=h1->Integral() * h1->GetBinWidth(0); //0
@@ -44,56 +49,74 @@ std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsi
   mean = p;
   double fitsigma = nsigma * rms;
 
-  struct para {
-    const string name; const double ival; const double minval; const double maxval;
+  paras.reset();
+  paras = {
+    {"norm      ", integr   , 0.                         , 2*integr       ,0},
+    {"core_mu   ", mean     , 0.7*mean                   , 1.2*mean       ,0},
+    {"core_sigma", rms      , 0.4*rms                    , 1.5*rms        ,0},
+    {"cdf_mu    ", 3.5/ptmin, 2.0/ptmin                  , 5./ptmin       ,0},
+    {"cdf_sigma ", 0.2/ptmin, 0.1/ptmin                  , 1./ptmin       ,0},
+    {"core_frac ", 0.9      , min(0.4,(ptmin-2)*0.05+0.4), 1.0            ,0},
+    {"sigma_inc ", 0.5      , 0.02                       , 2.             ,0},
+    {"3rd_mu    ", 0.4      , 0.2                        , 0.6            ,0},
+    {"3rd_sig   ", 0.2      , 0.1                        , 4.             ,0},
   };
-  std::vector<para> paras = {
-    {"norm      ", integr   , 0.                         , 2*integr       },
-    {"core_mu   ", mean     , 0.7*mean                  , 1.2*mean       },
-    {"core_sigma", rms      , 0.4*rms                    , 1.5*rms        },
-    {"cdf_mu    ", 3.5/ptmin , 2.0/ptmin                  , 5./ptmin       },
-    {"cdf_sigma ", 0.2/ptmin, 0.1/ptmin               ,  1./ptmin       },
-    {"core_frac ", 0.9      , min(0.4,(ptmin-2)*0.05+0.4), 1.0            },
-    {"sigma_inc ", 0.5  , 0.02                       , 2.             },
-  };
-
-  std::vector<double> paravals;
-  for (int ipush = 0; ipush < paras.size(); ++ipush){
-    paravals.push_back(paras[ipush].ival);
+  for (int iset = 0; iset < paras.size(); ++iset){
+    paras[iset].fval = paras[iset].ival;
   }
-  std::vector<double> paralims;
-  paralims.resize(paravals.size(),0);
+
+
+  // std::vector<double> paravals;
+  // for (int ipush = 0; ipush < paras.size(); ++ipush){
+  //   paravals.push_back(paras[ipush].ival);
+  // }
+  // std::vector<double> paralims;
+  // paralims.resize(paravals.size(),0);
 
   // double xmin = h1->GetXaxis()->GetXmin();
   double xmin = 0.8/(ptmin+1.);
 
-  if (pt1 > 7) xmin = max(paravals[1]-0.8*rms,xmin);
+  if (pt1 > 0) xmin = max(paravals[1]-0.8*rms,xmin);
   double xmax = min(h1->GetXaxis()->GetXmax(),paravals[1] + 2.0*rms);
 
+  //Fitting the bi-gaus function
   for (int iiter = 0; iiter < 15; iiter++){
 
-    fitfnc = new TF1("multigaus",myfunction,xmin,xmax,7);
-    fitfnc->SetParNames("N","Core #mu","Core #sigma","CDF #mu","CDF #sigma","Tail Frac","Tail #sigma");
+    fitbigaus = new TF1("bigaus",bigaus,xmin,xmax,7);
+    fitbigaus->SetParNames("N","Core #mu","Core #sigma","CDF #mu","CDF #sigma","Tail Frac","Tail #sigma");
 
-    for(int iset = 0; iset < paras.size(); ++iset){
-      fitfnc->SetParameter(iset, paravals[iset]);
-      fitfnc->SetParLimits(iset, paras[iset].minval, paras[iset].maxval);
+    for(int iset = 0; iset < fitbigaus->GetParNumber(); ++iset){
+      fitbigaus->SetParameter(iset, paravals[iset]);
+      fitbigaus->SetParLimits(iset, paras[iset].minval, paras[iset].maxval);
     }
-    h1->Fit(fitfnc,"RQ0");
+    h1->Fit(fitbigaus,"RQ0");
 
-    for (int iget = 0; iget < paras.size(); ++iget) {
-      paravals[iget] = fitfnc->GetParameter(iget);
+    for (int iget = 0; iget < fitbigaus->GetParNumber(); ++iget) {
+      paravals[iget] = fitbigaus->GetParameter(iget);
     }
-
   }
+
+
 
   // h1->GetXaxis()->SetRangeUser(0,xmax);
   h1->Draw();
-  fitfnc->Draw("same");
+  fitbigaus->Draw("same");
+  TString namec="h1c_";
+  namec.Append(h1->GetName());
+  TH1F *h1c=(TH1F*)h1->Clone(namec);
+  for(unsigned i=0; i<h1c->GetNbinsX(); ++i) h1c->SetBinContent(i+1,h1c->GetBinContent(i+1)-fitbigaus->Eval(h1c->GetBinCenter(i+1)));
+  h1c->SetLineColor(8);
+  h1c->SetLineStyle(2);
+  h1c->Draw("same,hist");
+  TF1 *gaustest=new TF1("gaustest","gausn",0.,1.);
+  gaustest->SetLineColor(1);
+  gaustest->SetLineStyle(3);
+  h1c->Fit(gaustest,"R");
+  gaustest->Draw("same");
 
   jetpt *= paravals[1]/h1->GetMean();
-  double chi2 = fitfnc->GetChisquare();
-  double ndf  = fitfnc->GetNDF();
+  double chi2 = fitbigaus->GetChisquare();
+  double ndf  = fitbigaus->GetNDF();
   for (int iprint = 0; iprint < paras.size(); ++iprint){
     if(paravals[iprint] < paras[iprint].minval * 1.01) {
       paralims[iprint] = 1;
@@ -131,7 +154,7 @@ std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsi
   // cout << "median = " << medianx <<endl;
   // cout << "median without Threshold Effect = " << medianx2 <<endl;
   cout << "Chi Square / NDF = "  << chi2 <<"/"<< ndf <<" = "<<chi2 / ndf<< endl;
-  cout << "P = "<<fitfnc->GetProb()<<endl;
+  cout << "P = "<<fitbigaus->GetProb()<<endl;
   cout << "JetPt = "<< h2->GetMean() << " * " << paravals[1]/h1->GetMean() << " = " << jetpt <<endl;
   cout << endl;
 

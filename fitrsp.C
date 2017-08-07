@@ -21,10 +21,13 @@ std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsi
 {
   string relrspname   = Form("ak4pfchsl1/RelRsp_JetEta%sto%s_RefPt%dto%d",eta1.c_str(),eta2.c_str(),pt1,pt2);
   string jetptname    = Form("ak4pfchsl1/JetPt_JetEta%sto%s_RefPt%dto%d",eta1.c_str(),eta2.c_str(),pt1,pt2);
+  string rawname      = Form("ak4pfchs/RelRsp_JetEta%sto%s_RefPt%dto%d",eta1.c_str(),eta2.c_str(),pt1,pt2);
   if (moreinfo) cout << relrspname <<endl;
   TFile *fin = new TFile("jra.root");
   TH1F *h1 = (TH1F*)fin->Get(relrspname.c_str());
   TH1F *h2 = (TH1F*)fin->Get(jetptname.c_str());
+  TFile *fin2 = new TFile("jraraw.root");
+  TH1F *h3 = (TH1F*)fin2->Get(rawname.c_str());
   double jetpt = h2->GetMean();
 
   // h1->Rebin(10);
@@ -67,7 +70,7 @@ std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsi
   // double xmin = h1->GetXaxis()->GetXmin();
   double xmin = 0.8/(ptmin+1.);
 
-  if (pt1 > 7) xmin = max(paravals[1]-0.8*rms,xmin);
+  if (pt1 > 10) xmin = max(paravals[1]-0.5*rms,xmin);
   double xmax = min(h1->GetXaxis()->GetXmax(),paravals[1] + 2.0*rms);
 
   for (int iiter = 0; iiter < 15; iiter++){
@@ -88,10 +91,27 @@ std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsi
   }
 
   // h1->GetXaxis()->SetRangeUser(0,xmax);
-  h1->Draw();
-  fitfnc->Draw("same");
 
-  jetpt *= paravals[1]/h1->GetMean();
+  h3->SetLineColor(6);
+  h3->Scale(h1->GetBinWidth(1)/h3->GetBinWidth(1));
+
+
+
+  TString namec="h1c_";
+  namec.Append(h1->GetName());
+  TH1F *h1c=(TH1F*)h1->Clone(namec);
+  for(unsigned i=0; i<h1c->GetNbinsX(); ++i) h1c->SetBinContent(i+1,h1c->GetBinContent(i+1)-fitfnc->Eval(h1c->GetBinCenter(i+1)));
+  h1c->SetLineColor(8);
+  h1c->SetLineStyle(2);
+
+  TF1 *gaustest=new TF1("gaustest","gausn",0.,1.);
+  gaustest->SetLineColor(1);
+  gaustest->SetLineStyle(3);
+  h1c->Fit(gaustest,"RQ0");
+
+
+  // jetpt *= paravals[1]/h1->GetMean();
+  jetpt = paravals[1] * (pt1+pt2)/2;
   double chi2 = fitfnc->GetChisquare();
   double ndf  = fitfnc->GetNDF();
   for (int iprint = 0; iprint < paras.size(); ++iprint){
@@ -118,6 +138,12 @@ std::vector<double> myfit(string eta1, string eta2, int pt1, int pt2, double nsi
   output.push_back(pt2);            // npara * 5 + 4
 
   //needed output all set
+  h1->Draw();
+  fitfnc->Draw("same");
+  // h3->Draw("same");
+  // h1c->Draw("same,hist");
+  // gaustest->Draw("same");
+
 
   if(!moreinfo) return output;
 
